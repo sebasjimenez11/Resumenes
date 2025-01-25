@@ -1,46 +1,64 @@
-import dotenv from 'dotenv';
-import {GoogleGenerativeAI}  from '@google/generative-ai';
+document.addEventListener("DOMContentLoaded", () => {
+  const textArea = document.getElementById("resumen");
+  const btnSubmit = document.querySelector("button");
+  const resumenContainer = document.querySelector(".resumen p");
+  const loader = document.querySelector(".loader");
 
-dotenv.config();
+  // Evento al hacer clic en el botón
+  btnSubmit.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await handleResumen();
+  });
 
-document.addEventListener('submit', (event)=> generarResumen(event));
+  // Evento para detectar Enter en el textarea
+  textArea.addEventListener("keypress", async (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      await handleResumen();
+    }
+  });
 
-function generarResumen (event) {
-    console.log(event);
-}
+  async function handleResumen() {
+    const texto = textArea.value.trim();
+    if (!texto) {
+      alert("Debes escribir algo para generar un resumen.");
+      return;
+    }
 
-// Accede a tu API key como una variable de entorno
-const genAI = new GoogleGenerativeAI(process.env.API_KEY);
+    // Mostrar el loader mientras se genera el resumen
+    loader.style.display = "block";
+    resumenContainer.textContent = "";
 
-async function run() {
-  // Usamos el modelo "gemini-1.5-flash"
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-  // Definir el prompt y los parámetros de ajuste
-  const prompt = "Escribe una historia breve sobre una mochila mágica en un tono amigable y entretenido. de forma breve en la que no se extienda";
-
-  // Configurar parámetros como temperatura, longitud y estilo
-  const options = {
-    max_tokens: 50,        // Limitar la longitud de la respuesta
-    temperature: 0.6,       // Ajustar la creatividad de la respuesta
-    top_p: 1.0,             // Diversidad de respuestas
-    n: 1,                   // Número de respuestas generadas
-    stop: ["\n"],           // Finalizar la respuesta con un salto de línea (si es necesario)
-  };
-
-  try {
-    // Generar la respuesta utilizando el modelo con las opciones definidas
-    const result = await model.generateContent(prompt, options);
-    
-    // Acceder a la respuesta generada
-    const response = await result.response;
-    const text = response.text(); // Obtener el texto de la respuesta
-    
-    // Mostrar la respuesta generada en la consola
-    console.log(text);
-  } catch (error) {
-    console.error('Error al generar contenido:', error);
+    try {
+      const resumen = await generarResumen(texto);
+      resumenContainer.textContent = resumen;
+      textArea.value = ""; // Limpia el textarea después de generar el resumen
+    } catch (error) {
+      console.error("Error al generar el resumen:", error);
+      alert("Hubo un error al generar el resumen. Intenta de nuevo.");
+    } finally {
+      // Ocultar el loader
+      loader.style.display = "none";
+    }
   }
-}
 
-// run();
+  async function generarResumen(texto) {
+    // Prompt ajustado para IA
+    const prompt =
+      "Genera un resumen claro, conciso y relevante para el siguiente texto. Asegúrate de mantener la profundidad y el significado del contenido original:";
+    const response = await fetch("http://localhost:3000/Resumenes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ texto: `${prompt} ${texto}` }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Error en la solicitud al servidor.");
+    }
+
+    const data = await response.json();
+    return data.resumen; // Retorna el resumen del servidor
+  }
+});
